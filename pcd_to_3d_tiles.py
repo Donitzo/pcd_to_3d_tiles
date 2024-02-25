@@ -4,20 +4,9 @@ Module Name: pcd_to_3d_tiles
 Description:
 Handles the conversion from point cloud data to 3D meshes (tiles).
 
-This involves multiple processing steps configured in the provided configuration file.
-
-Steps:
-  - Outlier_removal using nearest neighbor counting
-  - Removal of ground points from vegetation using Delaunay triangulation
-  - Smoothing vegetation height using nearest neighbor aggregation and percentile height
-  - Anistropic diffusion smoothing of point clouds
-  - Model triangulation
-  - Decimation using binary search
-
-Example: pcd_to_3d_tiles(config, pcd, bound, image, path_prefix)
-
 Author: Donitz
 License: MIT
+Repository: https://github.com/Donitzo/pcd_to_3d_tiles
 '''
 
 import json
@@ -76,16 +65,17 @@ def _is_point_in_triangle_2d(points, triangle):
 
     return ~(has_neg & has_pos)
 
-def _remove_ground_points_from_vegetation(config, pcd):
+def _remove_ground_points_from_vegetation(config, pcd, bound, filter_mesh_path):
     '''
-        Remove ground points from vegetation points using triangulation.
+        Remove ground points from vegetation by triangulating a filter mesh around all vegetation.
+        Optionally save the filter mesh.
     '''
 
-    max_edge_length = config.getfloat('vegetation', 'max_vegetation_filter_face_edge_length')
+    print('Removing ground points located inside vegetation')
 
-    print('Removing ground points located inside dense vegetation')
+    max_edge_length = config.getfloat('vegetation_filter', 'max_filter_face_edge_length')
 
-    # Get points with the vegetation and ground classes
+    # Get points with the vegetation classes
     is_vegetation = np.isin(pcd[:, 3], VEGETATION_CLASSES)
     pcd_v = pcd[is_vegetation]
 
@@ -94,6 +84,7 @@ def _remove_ground_points_from_vegetation(config, pcd):
 
         return pcd
 
+    # Get ground points
     ground_indices = np.where(~is_vegetation)[0]
     pcd_g = pcd[ground_indices]
 
@@ -105,6 +96,19 @@ def _remove_ground_points_from_vegetation(config, pcd):
     side_lengths = np.sqrt(np.sum(np.square(vertices - np.roll(vertices, -1, axis=1)), axis=2))
 
     faces = faces[np.all(side_lengths <= max_edge_length, axis=1)]
+
+    # Save the filter mesh
+    if config.getboolean('vegetation_filter', 'save_filter_mesh'):
+        # Change coordinate system for vertices
+        vertices = pcd_v[:, [0, 2, 1]]
+        vertices[:, 2] = -vertices[:, 2]
+
+        # Create, crop and export mesh
+        mesh = trimesh.Trimesh(vertices=vertices, faces=faces)
+        mesh = _crop_mesh(mesh, bound)
+        mesh.export(filter_mesh_path)
+
+        print('->Vegetation filter model saved at "%s"' % filter_mesh_path)
 
     # Get triangles and triangle points from vegetation faces (every third point forms a triangle)
     triangles = pcd_v[faces, :2]
@@ -134,12 +138,12 @@ def _smooth_vegetation_height(config, pcd):
         Aggregate/smooth the height of vegetation based on neighboring vegetation points.
     '''
 
-    distance = config.getfloat('vegetation', 'aggregate_distance')
-    aggregate_percentile = config.getfloat('vegetation', 'aggregate_percentile')
-
     print('Aggregating/smoothing vegetation height')
 
-    # Get points with a vegetation class
+    distance = config.getfloat('vegetation_smoothing', 'aggregate_distance')
+    aggregate_percentile = config.getfloat('vegetation_smoothing', 'aggregate_percentile')
+
+    # Get points with the vegetation classes
     vegetation_indices = np.where(np.isin(pcd[:, 3], VEGETATION_CLASSES))[0]
     pcd_v = pcd[vegetation_indices]
 
@@ -155,24 +159,21 @@ def _smooth_vegetation_height(config, pcd):
     pcd_new = pcd.copy()
 
     for i, point_indices in enumerate(indices):
-        # Skip if no neighbors are found
-        if not point_indices:
-            continue
+        if point_indices:
+            # Calculate the specified percentile for the heights of the neighborhood vegetation
+            z = np.percentile(pcd_v[point_indices, 2], aggregate_percentile)
 
-        # Calculate the specified percentile for the heights of the neighborhood vegetation
-        z = np.percentile(pcd_v[point_indices, 2], aggregate_percentile)
-
-        # Update the height in the new point cloud for the current vegetation point
-        pcd_new[vegetation_indices[i], 2] = z
+            # Update the height in the new point cloud for the current vegetation point
+            pcd_new[vegetation_indices[i], 2] = z
 
     aad = np.mean(np.abs(pcd_new[vegetation_indices, 2] - pcd[vegetation_indices, 2]))
     print('->Vegetation points adjusted an average absolute deviation of %.2f m in height' % aad)
 
     return pcd_new
 
-def _anistropic_diffusion(config, pcd):
+def _anisotropic_diffusion(config, pcd):
     '''
-        Smooth point cloud using anistropic diffusion.
+        Smooth point cloud using anisotropic diffusion.
     '''
 
     iterations = config.getint('anisotropic_diffusion', 'iterations')
@@ -183,7 +184,7 @@ def _anistropic_diffusion(config, pcd):
     pcd_new = pcd.copy()
 
     progress = tqdm(range(iterations))
-    progress.set_description('Applying anistropic diffusion smoothing')
+    progress.set_description('Applying anisotropic diffusion smoothing')
 
     for _ in progress:
         # Query the nearest neighbors for each point, excluding the point itself
@@ -211,15 +212,17 @@ def _anistropic_diffusion(config, pcd):
 def _create_model(config, pcd, bound, image, obj_path):
     '''
         Create model mesh from a point cloud and an image.
+
+        The outer corners are padded to account for missing points.
         The mesh is triangulated top-down using Delaunay triangulation.
-        The mesh is decimated until the error between the mesh and point cloud is close to the target Root-mean-square error.
+        The mesh is then decimated, cropped, a material is created and the mesh is exported.
     '''
 
     x_min, y_min, x_max, y_max = bound
     tile_size_x = x_max - x_min
     tile_size_y = y_max - y_min
 
-    # Get the .5 percentile height from the landscape
+    # Get the .5 percentile height above the point cloud floor
     min_height = np.percentile(pcd[:, 2], 0.5)
 
     # Pad the data with exterior corner points at the min height to prevent missing gaps due to missing points.
@@ -240,10 +243,34 @@ def _create_model(config, pcd, bound, image, obj_path):
     vertices = pcd[:, [0, 2, 1]]
     vertices[:, 2] = -vertices[:, 2]
 
-    # Find the optimal decimation factor for the mesh using binary search
+    # Create the mesh
     mesh = trimesh.Trimesh(vertices=vertices, faces=faces)
 
-    new_mesh = mesh
+    # Decimate the mesh
+    new_mesh = _decimate_mesh(config, mesh)
+    print('->Decimated mesh has %i faces (%.2f%% reduction)' % (
+        new_mesh.faces.shape[0], 100 - float(new_mesh.faces.shape[0]) / mesh.faces.shape[0] * 100))
+    mesh = new_mesh
+
+    # Crop the mesh
+    new_mesh = _crop_mesh(mesh, bound)
+    print('->Cropped mesh has %i faces (%.2f%% reduction)' % (
+        new_mesh.faces.shape[0], 100 - float(new_mesh.faces.shape[0]) / mesh.faces.shape[0] * 100))
+    mesh = new_mesh
+
+    # Add a material to the mesh
+    _add_mesh_material(mesh, bound, Path(obj_path).stem, image)
+
+    # Export the mesh
+    new_mesh.export(obj_path, mtl_name='%s.mtl' % Path(obj_path).stem)
+
+    print('Model saved at "%s"' % obj_path)
+
+def _decimate_mesh(config, mesh):
+    '''
+        Decimate mesh using binary search to find a decimation factor bringing the RMSE* close to "target_rmse".
+        * Root-mean-square error between point cloud and mesh.
+    '''
 
     target_rmse = config.getfloat('mesh_decimation', 'target_rmse', fallback=None)
     search_iterations = config.getint('mesh_decimation', 'binary_search_iterations')
@@ -251,55 +278,69 @@ def _create_model(config, pcd, bound, image, obj_path):
     decimation_factor = 0.5
     decimation_factor_step = 0.25
 
+    new_mesh = mesh
+
     progress = tqdm(range(search_iterations))
     progress.set_description('Finding mesh decimation factor')
 
     for _ in progress:
-        # Decimate mesh
+        # Decimate the mesh with the given factor
         target_faces = int(mesh.faces.shape[0] * decimation_factor)
         new_mesh = mesh.simplify_quadric_decimation(target_faces)
 
         # Find the closest distance between the decimated mesh and the point cloud
         scene = o3d.t.geometry.RaycastingScene()
         scene.add_triangles(o3d.t.geometry.TriangleMesh.from_legacy(new_mesh.as_open3d))
-        closest = scene.compute_closest_points(o3d.core.Tensor.from_numpy(vertices.astype(np.float32)))['points'].numpy()
+        closest = scene.compute_closest_points(o3d.core.Tensor.from_numpy(mesh.vertices.astype(np.float32)))['points'].numpy()
 
         # Calculate RMSE
-        distances = np.sqrt(np.sum((vertices - closest) ** 2, axis=1))
+        distances = np.sqrt(np.sum((mesh.vertices - closest) ** 2, axis=1))
         rmse = np.sqrt(np.mean(distances ** 2))
 
         progress.set_description('Mesh decimated with a factor of %.4f and RMSE %.2f m (Target RMSE %.2f m)' % (decimation_factor, rmse, target_rmse))
 
-        # Update decimation facotr
+        # Update decimation factor
         decimation_factor += decimation_factor_step * (1 if rmse > target_rmse else -1)
         decimation_factor_step /= 2
 
-    print('->Decimated mesh has %i faces (%.2f%% reduction)' % (new_mesh.faces.shape[0], 100 - float(new_mesh.faces.shape[0]) / mesh.faces.shape[0] * 100))
+    return new_mesh
+
+def _crop_mesh(mesh, bound):
+    '''
+        Crop the mesh with the bound edges.
+    '''
+
+    x_min, y_min, x_max, y_max = bound
+    tile_size_x = x_max - x_min
+    tile_size_y = y_max - y_min
 
     # Slice edges off mesh
-    new_mesh = new_mesh.slice_plane([0, 0, 0], [1, 0, 0])
-    new_mesh = new_mesh.slice_plane([tile_size_x, 0, 0], [-1, 0, 0])
-    new_mesh = new_mesh.slice_plane([0, 0, 0], [0, 0, -1])
-    new_mesh = new_mesh.slice_plane([0, 0, -tile_size_y], [0, 0, 1])
+    mesh = mesh.slice_plane([0, 0, 0], [1, 0, 0])
+    mesh = mesh.slice_plane([tile_size_x, 0, 0], [-1, 0, 0])
+    mesh = mesh.slice_plane([0, 0, 0], [0, 0, -1])
+    mesh = mesh.slice_plane([0, 0, -tile_size_y], [0, 0, 1])
 
-    print('->Cropped mesh has %i faces' % new_mesh.faces.shape[0])
+    return mesh
+
+def _add_mesh_material(mesh, bound, material_name, image):
+    '''
+        Create UV coordinates and add a material to the mesh.
+    '''
+
+    x_min, y_min, x_max, y_max = bound
+    tile_size_x = x_max - x_min
+    tile_size_y = y_max - y_min
 
     # Create UV coordinates
-    uv = new_mesh.vertices[:, [0, 2]].copy()
+    uv = mesh.vertices[:, [0, 2]].copy()
     uv[:, 0] = uv[:, 0] / tile_size_x
     uv[:, 1] = -uv[:, 1] / tile_size_y
 
-    # Add material
-    if not image is None:
-        new_mesh.visual = trimesh.visual.TextureVisuals(uv=uv, image=image)
-        new_mesh.visual.material.name = Path(obj_path).stem
-        new_mesh.visual.material.specular = [0.0, 0.0, 0.0]
-        new_mesh.visual.material.diffuse = [0.0, 1.0, 0.0]
-
-    # Export mesh
-    new_mesh.export(obj_path, mtl_name='%s.mtl' % Path(obj_path).stem)
-
-    print('Model saved at "%s"' % obj_path)
+    # Add a texture material to the mesh based on the given image and UV coordinates
+    mesh.visual = trimesh.visual.TextureVisuals(uv=uv, image=image)
+    mesh.visual.material.name = material_name
+    mesh.visual.material.specular = [0.0, 0.0, 0.0]
+    mesh.visual.material.diffuse = [0.0, 1.0, 0.0]
 
 def _take_screenshot(config, obj_path, png_path):
     '''
@@ -309,7 +350,7 @@ def _take_screenshot(config, obj_path, png_path):
     json_path = config.get('screenshot', 'camera_parameters_json_path', fallback=None)
 
     if not json_path is None:
-        # Load previously saved camera parameters from JSON (can be created using the Open3D visualizer)
+        # Load previously saved camera parameters from JSON (can be created using "visualize_mesh.py")
         with open(json_path, 'r') as f:
             view = json.load(f)
             intrinsic = view['intrinsic']
@@ -329,7 +370,7 @@ def _take_screenshot(config, obj_path, png_path):
     vis = o3d.visualization.Visualizer()
     vis.create_window(visible=False, width=width, height=height)
 
-    # Load the textured mesh again
+    # Load the textured mesh
     mesh_o3d = o3d.io.read_triangle_mesh(obj_path, True)
 
     # Add the textured mesh to the visualizer
@@ -347,10 +388,18 @@ def _take_screenshot(config, obj_path, png_path):
 
     print('Screenshot saved')
 
-def _save_point_cloud(config, pcd, ply_path):
+def _save_point_cloud(config, pcd, bound, ply_path):
     '''
         Save the point cloud as a PLY file.
     '''
+
+    x_min, y_min, x_max, y_max = bound
+    tile_size_x = x_max - x_min
+    tile_size_y = y_max - y_min
+
+    # Crop points
+    use = (pcd[:, 0] >= 0) & (pcd[:, 1] >= 0) & (pcd[:, 0] <= tile_size_x) & (pcd[:, 1] <= tile_size_y)
+    pcd = pcd[use]
 
     # Create vertex attributes
     vertex = np.empty(pcd.shape[0], dtype=[
@@ -403,7 +452,7 @@ def pcd_to_3d_tiles(config, pcd, bound, image, path_prefix):
     if config.getboolean('output', 'save_point_cloud'):
         ply_path = '%s_pcd_original.ply' % path_prefix
 
-        _save_point_cloud(config, pcd, ply_path)
+        _save_point_cloud(config, pcd, bound, ply_path)
 
     # Remove outliers
     pcd = _outlier_removal(config, pcd)
@@ -411,14 +460,18 @@ def pcd_to_3d_tiles(config, pcd, bound, image, path_prefix):
     # There must be at least 4 points remaining to generate meshes
     assert pcd.shape[0] >= 4, 'Not enough points remaining'
 
-    # Remove ground points located in vegetation
-    pcd = _remove_ground_points_from_vegetation(config, pcd)
-
     # Smooth vegetation height
-    pcd = _smooth_vegetation_height(config, pcd)
+    if config.getboolean('vegetation_smoothing', 'smooth_vegetation'):
+        pcd = _smooth_vegetation_height(config, pcd)
 
-    # Smooth the point cloud using anistropic diffusion
-    pcd = _anistropic_diffusion(config, pcd)
+    # Remove ground points located in vegetation
+    if config.getboolean('vegetation_filter', 'filter_ground_points'):
+        filter_mesh_path = '%s_vegetation_filter.obj' % path_prefix
+
+        pcd = _remove_ground_points_from_vegetation(config, pcd, bound, filter_mesh_path)
+
+    # Smooth the point cloud using anisotropic diffusion
+    pcd = _anisotropic_diffusion(config, pcd)
 
     # There may not be any non-finite values in the point cloud
     assert not np.isnan(pcd).any() and not np.isinf(pcd).any(), 'Point cloud data contains NaN or infinite values'
@@ -427,7 +480,7 @@ def pcd_to_3d_tiles(config, pcd, bound, image, path_prefix):
     if config.getboolean('output', 'save_point_cloud'):
         ply_path = '%s_pcd_processed.ply' % path_prefix
 
-        _save_point_cloud(config, pcd, ply_path)
+        _save_point_cloud(config, pcd, bound, ply_path)
 
     obj_path = '%s_mesh.obj' % path_prefix
 

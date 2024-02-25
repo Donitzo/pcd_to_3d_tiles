@@ -7,6 +7,7 @@ Useful to output camera parameters for screenshots.
 
 Author: Donitz
 License: MIT
+Repository: https://github.com/Donitzo/pcd_to_3d_tiles
 '''
 
 import argparse

@@ -2,13 +2,11 @@
 Module Name: parameter_sweep
 
 Description:
-Manual hyper-parameter optimization script.
-
-Sweep type 0: Iterate anistropic diffusion parameters in "./data/config.json"
-Sweep type 1: Generate a collage of image enhancement parameters
+Manual Parameter optimization script.
 
 Author: Donitz
 License: MIT
+Repository: https://github.com/Donitzo/pcd_to_3d_tiles
 '''
 
 import argparse
@@ -22,48 +20,48 @@ import tempfile
 from PIL import Image, ImageDraw, ImageEnhance, ImageFont
 
 parser = argparse.ArgumentParser(description='Sweep over configuration parameters')
-parser.add_argument('sweep_type', type=int, help='Sweep type (0: Anistropic diffusion, 1: Decimation RMSE, 2: Image enhancement)')
+parser.add_argument('sweep_type', type=int, help='Sweep type (0: Anisotropic diffusion, 1: Decimation RMSE, 2: Image enhancement)')
 args = parser.parse_args()
 
 if args.sweep_type == 0:
-    with tempfile.NamedTemporaryFile(delete=True, mode='w+', encoding='utf-8') as config_file:
-        print('Running anistropic diffusion parameter sweep')
+    print('Running anisotropic diffusion parameter sweep')
 
-        # Read the original configuration
-        config = configparser.ConfigParser()
-        config.read('./data/config.ini')
-
-        # Sweep over anistropic diffusion paramaters
-        for sensitivity in [1.0, 2.0, 3.0, 4.0]:
-            for diffusion_coefficient in [0.01, 0.02, 0.05, 0.1, 0.2]:
+    # Sweep over anisotropic diffusion paramaters
+    for sensitivity in [1.0, 2.0, 3.0, 4.0]:
+        for diffusion_coefficient in [0.01, 0.02, 0.05, 0.1, 0.2]:
+            with tempfile.NamedTemporaryFile(delete=True, mode='w+', encoding='utf-8') as config_file:
                 print('Creating config with sensitivity %.2f and diffusion_coefficient %.2f\n' % (sensitivity, diffusion_coefficient))
+
+                # Read the original configuration
+                config = configparser.ConfigParser()
+                config.read('./data/config.ini')
 
                 # Update the parameters
                 config.set('anisotropic_diffusion', 'sensitivity', str(sensitivity))
                 config.set('anisotropic_diffusion', 'diffusion_coefficient', str(diffusion_coefficient))
-                config.set('output', 'model_path_prefix', './output/sweep_k=%.2f_lambda=%.2f' % (sensitivity, diffusion_coefficient))
+                config.set('output', 'path_prefix', './output/sweep_k=%.2f_lambda=%.2f' % (sensitivity, diffusion_coefficient))
 
                 config.write(config_file)
                 config_file.flush()
 
                 # Launch the pipeline with the updated configuration
-                subprocess.run([sys.executable, './pipeline_nls.py', '--config_path=%s' % config_file.name], check=True)
+                subprocess.run([sys.executable, './pipeline_nls.py', '--config_path=%s' % config_file.name, '--single_tile'], check=True)
 
 if args.sweep_type == 1:
-    with tempfile.NamedTemporaryFile(delete=True, mode='w+', encoding='utf-8') as config_file:
-        print('Running decimation parameter sweep')
+    print('Running decimation parameter sweep')
 
-        # Read the original configuration
-        config = configparser.ConfigParser()
-        config.read('./data/config.ini')
-
-        # Sweep over target RMSE for mesh decimation paramaters
-        for target_rmse in [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]:
+    # Sweep over target RMSE for mesh decimation paramaters
+    for target_rmse in [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]:
+        with tempfile.NamedTemporaryFile(delete=True, mode='w+', encoding='utf-8') as config_file:
             print('Creating config with target_rmse %.1f\n' % target_rmse)
+
+            # Read the original configuration
+            config = configparser.ConfigParser()
+            config.read('./data/config.ini')
 
             # Update the parameters
             config.set('mesh_decimation', 'target_rmse', str(target_rmse))
-            config.set('output', 'model_path_prefix', './output/sweep_rmse=%.1f' % target_rmse)
+            config.set('output', 'path_prefix', './output/sweep_rmse=%.1f' % target_rmse)
 
             config.write(config_file)
             config_file.flush()
@@ -80,7 +78,7 @@ if args.sweep_type == 2:
     color_enhance_range = np.arange(1, 2 + 1e-6, 0.1)
 
     # Load sample image
-    image = Image.open('./data/sweep/sample_small.png')
+    image = Image.open('./data/sweep/sample.png')
 
     # Calculate collage layout and prepare image
     collage_width = brightness_range.shape[0] * contrast_range.shape[0]

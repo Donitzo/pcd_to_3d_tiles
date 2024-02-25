@@ -6,6 +6,7 @@ A complete pipeline for generating 3D tiles from point cloud data (LAS/LAZ) and 
 
 Author: Donitz
 License: MIT
+Repository: https://github.com/Donitzo/pcd_to_3d_tiles
 '''
 
 import argparse
@@ -30,6 +31,7 @@ Image.MAX_IMAGE_PIXELS = 5000000000
 # Load configuration
 parser = argparse.ArgumentParser(description='Convert point cloud to meshes')
 parser.add_argument('--config_path', default='./data/config.ini', help='Path to the configuration INI file')
+parser.add_argument('--single_tile', action='store_true', help='Create a single tile no matter the extent')
 args = parser.parse_args()
 
 config = configparser.ConfigParser()
@@ -67,8 +69,8 @@ else:
 tile_size = config.getint('tiling', 'tile_size')
 tile_padding = config.getint('tiling', 'tile_padding')
 
-n_tiles_x = int(np.ceil((extent[2] - extent[0]) / tile_size))
-n_tiles_y = int(np.ceil((extent[3] - extent[1]) / tile_size))
+n_tiles_x = 1 if args.single_tile else int(np.ceil((extent[2] - extent[0]) / tile_size))
+n_tiles_y = 1 if args.single_tile else int(np.ceil((extent[3] - extent[1]) / tile_size))
 
 print('%i LAS files and %i images files found' % (len(las_paths), len(image_paths)))
 print('Tile count %ix%i of size %i m' % (n_tiles_x, n_tiles_y, tile_size))
