@@ -1,0 +1,9 @@
+laspy[lazrs]
+open3d
+pillow
+plyfile
+scipy
+shapely
+tm35fin
+trimesh
+tqdm
