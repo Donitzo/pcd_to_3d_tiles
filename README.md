@@ -108,10 +108,10 @@ Converts JPEG2000 images in the `./data/orto/` directory into PNG format for fas
 
 ### parameter_sweep
 
-Manual hyper-parameter optimization with three modes of operation:
-  - **Sweep Type 0**: Iterates anisotropic diffusion parameters in `./data/config.json`.
-  - **Sweep Type 1**: Iterates target RMSE for decimation in `./data/config.json`.
-  - **Sweep Type 2**: Generates a collage of images based on varying image enhancement parameters.
+Manual parameter optimization with three modes of operation:
+  - **Sweep Type 0**: Iterates anisotropic diffusion parameters in `./data/config.json` and outputs into `./output/sweep_`.
+  - **Sweep Type 1**: Iterates target RMSE for decimation in `./data/config.json` and outputs into `./output/sweep_`.
+  - **Sweep Type 2**: Generates a collage of images based on varying image enhancement parameters. Reads the image in `./data/sweep/sample.png` and writes to `./output/sample_collage.png`.
 
 ### visualize_mesh
 
