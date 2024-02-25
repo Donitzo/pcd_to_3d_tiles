@@ -13,7 +13,6 @@ import json
 import numpy as np
 import open3d as o3d
 import os
-import plyfile
 import sys
 import trimesh
 
@@ -401,28 +400,17 @@ def _save_point_cloud(config, pcd, bound, ply_path):
     use = (pcd[:, 0] >= 0) & (pcd[:, 1] >= 0) & (pcd[:, 0] <= tile_size_x) & (pcd[:, 1] <= tile_size_y)
     pcd = pcd[use]
 
-    # Create vertex attributes
-    vertex = np.empty(pcd.shape[0], dtype=[
-        ('x', 'f4'), ('y', 'f4'), ('z', 'f4'),
-        ('red', 'u1'), ('green', 'u1'), ('blue', 'u1'),
-    ])
+    # Prepare vertices and colors
+    vertices = pcd[:, :3]
 
-    # Assign coordinates
-    vertex['x'] = pcd[:, 0].astype(np.float32)
-    vertex['y'] = pcd[:, 1].astype(np.float32)
-    vertex['z'] = pcd[:, 2].astype(np.float32)
+    class_colors = np.array([
+        [0, 0, 0], [255, 0, 0], [255, 255, 0],
+        [0, 128, 0], [0, 192, 0], [0, 255, 0], [255, 255, 0]], dtype=np.uint8)
+    colors = class_colors[np.minimum(pcd[:, 3].astype(np.int32), class_colors.shape[0] - 1)]
 
-    # Assign colors from class
-    class_colors = np.array([[0, 0, 0], [255, 0, 0], [255, 255, 0], [0, 128, 0], [0, 192, 0], [0, 255, 0], [255, 255, 0]], dtype=np.ubyte)
-    colors = class_colors[np.minimum(pcd[:, 3].astype(np.short), class_colors.shape[0] - 1)]
-
-    vertex['red'] = colors[:, 0]
-    vertex['green'] = colors[:, 1]
-    vertex['blue'] = colors[:, 2]
-
-    # Write PLY file
-    ply = plyfile.PlyData([plyfile.PlyElement.describe(vertex, 'vertex')], text=True)
-    ply.write(ply_path)
+    # Export the point cloud to a PLY file
+    point_cloud = trimesh.points.PointCloud(vertices=vertices, colors=colors)
+    point_cloud.export(ply_path, file_type='ply')
 
     print('Point cloud model saved at "%s"' % ply_path)
 
