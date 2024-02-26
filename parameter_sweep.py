@@ -51,7 +51,7 @@ if args.sweep_type == 1:
     print('Running decimation parameter sweep')
 
     # Sweep over target RMSE for mesh decimation paramaters
-    for target_rmse in np.arange(0, 1 + 1e-6, 0.1):
+    for target_rmse in np.arange(0, 1 + 1e-6, 0.05):
         with tempfile.NamedTemporaryFile(delete=True, mode='w+', encoding='utf-8') as config_file:
             print('Creating config with target_rmse %.1f\n' % target_rmse)
 
