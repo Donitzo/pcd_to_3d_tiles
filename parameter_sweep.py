@@ -27,7 +27,7 @@ if args.sweep_type == 0:
     print('Running anisotropic diffusion parameter sweep')
 
     # Sweep over anisotropic diffusion paramaters
-    for sensitivity in [1.0, 2.0, 3.0, 4.0]:
+    for sensitivity in [0.0, 0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0]:
         for diffusion_coefficient in [0.01, 0.02, 0.05, 0.1, 0.2]:
             with tempfile.NamedTemporaryFile(delete=True, mode='w+', encoding='utf-8') as config_file:
                 print('Creating config with sensitivity %.2f and diffusion_coefficient %.2f\n' % (sensitivity, diffusion_coefficient))
@@ -51,7 +51,7 @@ if args.sweep_type == 1:
     print('Running decimation parameter sweep')
 
     # Sweep over target RMSE for mesh decimation paramaters
-    for target_rmse in [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]:
+    for target_rmse in np.arange(0, 1 + 1e-6, 0.1):
         with tempfile.NamedTemporaryFile(delete=True, mode='w+', encoding='utf-8') as config_file:
             print('Creating config with target_rmse %.1f\n' % target_rmse)
 
