@@ -51,6 +51,10 @@ The conversion pipeline's behavior is controlled by a configuration file, by def
 
 ## Processing steps
 
+The following collage shows the results of various processing steps.
+
+![Anisotropic diffusion collage](https://github.com/Donitzo/pcd_to_3d_tiles/blob/main/data/sweep/processing_steps_collage.png)
+
 ### Outlier removal
 
 Outliers in the point cloud are eliminated using local outlier detection. This method identifies and removes points that have fewer neighbors within a specified radius than expected.
@@ -78,6 +82,8 @@ The point cloud is converted into a mesh through Delaunay triangulation, applied
 ### Mesh decimation
 
 The mesh undergoes decimation, reducing its complexity by a certain decimation factor. This factor is determined through a binary search that seeks to minimize the Root-mean-square error (RMSE) between the original point cloud and the mesh, adhering to a predefined target RMSE value.
+
+![Anisotropic diffusion collage](https://github.com/Donitzo/pcd_to_3d_tiles/blob/main/data/sweep/sweep_rmse_collage.png)
 
 ### Color correction
 
