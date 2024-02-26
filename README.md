@@ -49,7 +49,33 @@ The conversion pipeline processes points classified as Low, Medium, or High Vege
 
 The conversion pipeline's behavior is controlled by a configuration file, by default `data/config.json`. The configuration allows for customization of the processing steps, data sources and output files. Each setting within the configuration file is thoroughly documented.
 
-## Color correction
+## Processing steps
+
+### Outlier removal
+
+Outliers in the point cloud are eliminated using local outlier detection. This method identifies and removes points that have fewer neighbors within a specified radius than expected.
+
+### Smoothing vegetation height
+
+Vegetation points are smoothed by adjusting the height of each point to match a percentile of the heights from its neighboring vegetation points, producing a more uniform vegetation layer.
+
+### Filtering ground points
+
+To reduce complexity in the final mesh, ground points located under dense vegetation are removed. This is achieved by triangulating the vegetation from above into a mesh, where the mesh's maximum triangle edge length is constrained. Subsequently, any ground points falling within this mesh (in a 2D perspective) are excluded.
+
+### Anisotropic diffusion
+
+Point cloud smoothing is performed using anisotropic diffusion, which selectively smooths areas while aiming to preserve significant edges within the cloud.
+
+### Mesh triangulation
+
+The point cloud is converted into a mesh through Delaunay triangulation, applied from a top-down perspective, to ensure a coherent mesh structure. Far-away corners are added to ensure the mesh covers the entire tile, and the final mesh is cropped back into the tile size.
+
+### Mesh decimation
+
+The mesh undergoes decimation, reducing its complexity by a certain decimation factor. This factor is determined through a binary search that seeks to minimize the Root-mean-square error (RMSE) between the original point cloud and the mesh, adhering to a predefined target RMSE value.
+
+### Color correction
 
 Satellite imagery often appears de-saturated and may not accurately represent true colors. To address this, the conversion pipeline incorporates three adjustable parameters for image enhancement:
 
