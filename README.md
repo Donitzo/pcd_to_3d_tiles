@@ -148,6 +148,10 @@ A utility script for visualizing meshes using Open3D. Useful for exporting camer
 
 Contributions/Bug reports to the toolkit are welcome.
 
+## Attribution
+
+The samples used in this GitHub repo are based on data from NLS under the open data license mentioned above. Orthophoto images and laser scanning data 0,5 p were used over Vaasa.
+
 ## License
 
 This project is licensed under the MIT License.
