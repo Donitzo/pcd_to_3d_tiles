@@ -63,6 +63,8 @@ Vegetation points are smoothed by adjusting the height of each point to match a 
 
 To reduce complexity in the final mesh, ground points located under dense vegetation are removed. This is achieved by triangulating the vegetation from above into a mesh, where the mesh's maximum triangle edge length is constrained. Subsequently, any ground points falling within this mesh (in a 2D perspective) are excluded.
 
+![Point cloud processing](https://github.com/Donitzo/pcd_to_3d_tiles/blob/main/data/sweep/point_cloud_processing.png)
+
 ### Anisotropic diffusion
 
 Point cloud smoothing is performed using anisotropic diffusion, which selectively smooths areas while aiming to preserve significant edges within the cloud.
