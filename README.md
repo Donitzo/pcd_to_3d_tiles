@@ -67,6 +67,8 @@ To reduce complexity in the final mesh, ground points located under dense vegeta
 
 Point cloud smoothing is performed using anisotropic diffusion, which selectively smooths areas while aiming to preserve significant edges within the cloud.
 
+![Anisotropic diffusion collage](https://github.com/Donitzo/pcd_to_3d_tiles/blob/main/data/sweep/sweep_anisotropic_diffusion_collage.png)
+
 ### Mesh triangulation
 
 The point cloud is converted into a mesh through Delaunay triangulation, applied from a top-down perspective, to ensure a coherent mesh structure. Far-away corners are added to ensure the mesh covers the entire tile, and the final mesh is cropped back into the tile size.
@@ -85,7 +87,7 @@ Satellite imagery often appears de-saturated and may not accurately represent tr
 
 The `parameter_sweep.py` module is designed to assist in fine-tuning these parameters. It generates a collage of images with varying levels of brightness, contrast, and color enhancement, allowing users to subjectively select the settings that best improve their specific imagery. The default parameters were selected by the author for their particular use case.
 
-![Sample collage](https://github.com/Donitzo/pcd_to_3d_tiles/blob/main/data/sweep/sample_collage.png)
+![Color correction collage](https://github.com/Donitzo/pcd_to_3d_tiles/blob/main/data/sweep/sample_collage.png)
 
 ## Pipelines
 
