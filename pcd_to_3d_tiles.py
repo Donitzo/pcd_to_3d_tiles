@@ -373,10 +373,29 @@ def _take_screenshot(config, obj_path, png_path):
     vis.create_window(visible=False, width=width, height=height)
 
     # Load the textured mesh
-    mesh_o3d = o3d.io.read_triangle_mesh(obj_path, True)
+    mesh = o3d.io.read_triangle_mesh(obj_path, True)
 
-    # Add the textured mesh to the visualizer
-    vis.add_geometry(mesh_o3d)
+    # Draw mesh
+    vis.add_geometry(mesh)
+
+    # Draw wireframe edges
+    if config.getboolean('screenshot', 'draw_wireframe'):
+        edges = []
+        for triangle in mesh.triangles:
+            edges.append((triangle[0], triangle[1]))
+            edges.append((triangle[1], triangle[2]))
+            edges.append((triangle[2], triangle[0]))
+
+        vertices = np.asarray(mesh.vertices)
+        vertices[:, 2] += 0.2
+
+        line_set = o3d.geometry.LineSet(
+            points=o3d.utility.Vector3dVector(vertices),
+            lines=o3d.utility.Vector2iVector(np.array(edges))
+        )
+        line_set.paint_uniform_color([0.75, 0.0, 0.0])
+
+        vis.add_geometry(line_set)
 
     # Configure camera
     if not camera_parameters is None:
@@ -417,7 +436,7 @@ def _save_point_cloud(config, pcd, bound, ply_path):
 
     print('Point cloud model saved at "%s"' % ply_path)
 
-def pcd_to_3d_tiles(config, pcd, bound, image, path_prefix):
+def pcd_to_3d_tile(config, pcd, bound, image, path_prefix):
     '''
     This function takes a point cloud as input and processes it to produce a 3D landscape tile.
 

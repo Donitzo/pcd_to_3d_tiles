@@ -23,7 +23,7 @@ from PIL import Image, ImageEnhance
 from tm35fin import MapTile
 from tqdm import tqdm
 
-from pcd_to_3d_tiles import pcd_to_3d_tiles
+from pcd_to_3d_tiles import pcd_to_3d_tile
 
 # Increase the maximum image size for Pillow (don't use with insecure images)
 Image.MAX_IMAGE_PIXELS = 5000000000
@@ -173,6 +173,6 @@ for tx_i in range(n_tiles_x):
             .replace('<max_x>', str(x_max)).replace('<max_y>', str(y_max))
 
         # Create the landscape model from the point cloud and tile image
-        pcd_to_3d_tiles(config, pcd, tile_bound, tile_image, path_prefix)
+        pcd_to_3d_tile(config, pcd, tile_bound, tile_image, path_prefix)
 
 print('\nAll tiles created')
