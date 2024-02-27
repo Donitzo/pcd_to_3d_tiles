@@ -180,7 +180,9 @@ def _anisotropic_diffusion(config, pcd):
     k = config.getfloat('anisotropic_diffusion', 'sensitivity')
     lambda_ = config.getfloat('anisotropic_diffusion', 'diffusion_coefficient')
 
-    if k <= 0 or lambda_ <= 0:
+    if iterations <= 0 or k <= 0 or lambda_ <= 0:
+        print('Anisotropic diffusion is disabled')
+
         return pcd
 
     pcd_new = pcd.copy()
