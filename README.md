@@ -83,7 +83,7 @@ The point cloud is converted into a mesh through Delaunay triangulation, applied
 
 The mesh undergoes decimation, reducing its complexity by a certain decimation factor. This factor is determined through a binary search that seeks to minimize the Root-mean-square error (RMSE) between the original point cloud and the mesh, adhering to a predefined target RMSE value.
 
-![Anisotropic diffusion collage](https://github.com/Donitzo/pcd_to_3d_tiles/blob/main/data/sweep/sweep_rmse_collage.png)
+![RMSE collage](https://github.com/Donitzo/pcd_to_3d_tiles/blob/main/data/sweep/sweep_rmse_collage.png)
 
 ### Color correction
 
