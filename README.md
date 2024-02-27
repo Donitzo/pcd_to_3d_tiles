@@ -158,7 +158,7 @@ Contributions/Bug reports to the toolkit are welcome.
 
 ## Attribution
 
-The samples used in this GitHub repo are based on data from NLS under the open data license mentioned above. Orthophoto images and laser scanning data 0,5 p were used over Vaasa.
+The samples used in this GitHub repo are based on data from NLS under the [National Land Survey open data Attribution CC 4.0 licence](https://www.maanmittauslaitos.fi/en/opendata-licence-cc40). Orthophoto images and laser scanning data 0,5 p were used over Vaasa, year 2021.
 
 ## License
 
