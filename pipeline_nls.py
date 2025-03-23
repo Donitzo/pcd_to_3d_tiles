@@ -112,7 +112,7 @@ for tx_i in range(n_tiles_x):
                 (pcd[:, 0] >= x_min - tile_padding) & (pcd[:, 0] <= x_max + tile_padding) &
                 (pcd[:, 1] >= y_min - tile_padding) & (pcd[:, 1] <= y_max + tile_padding)]
 
-            if pcd.shape[0] > 0 and np.all(pcd.ptp(0)[:2] > tile_padding * 2 + 0.1):
+            if pcd.shape[0] > 0 and np.all(np.ptp(pcd, axis=0)[:2] > tile_padding * 2 + 0.1):
                 pcd_list.append(pcd)
 
         if not pcd_list:
