@@ -1,3 +1,4 @@
+fast-simplification
 laspy[lazrs]
 open3d
 pillow
