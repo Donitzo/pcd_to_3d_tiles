@@ -290,11 +290,14 @@ def _decimate_mesh(config, mesh):
     for _ in progress:
         # Decimate the mesh with the given factor
         target_faces = int(mesh.faces.shape[0] * decimation_factor)
-        new_mesh = mesh.simplify_quadric_decimation(target_faces)
+        new_mesh = mesh.simplify_quadric_decimation(face_count=target_faces)
 
         # Find the closest distance between the decimated mesh and the point cloud
         scene = o3d.t.geometry.RaycastingScene()
-        scene.add_triangles(o3d.t.geometry.TriangleMesh.from_legacy(new_mesh.as_open3d))
+        o3d_mesh = o3d.t.geometry.TriangleMesh.from_legacy(o3d.geometry.TriangleMesh(
+            vertices=o3d.utility.Vector3dVector(new_mesh.vertices.copy()),
+            triangles=o3d.utility.Vector3iVector(new_mesh.faces.copy())))
+        scene.add_triangles(o3d_mesh)
         closest = scene.compute_closest_points(o3d.core.Tensor.from_numpy(mesh.vertices.astype(np.float32)))['points'].numpy()
 
         # Calculate RMSE
