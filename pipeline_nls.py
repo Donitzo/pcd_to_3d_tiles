@@ -41,11 +41,21 @@ print('Using config file "%s"' % args.config_path)
 
 # Get the x,y bounding box for a TM35FIN string code
 def tm35fin_bound(code):
+    parts = code.split('_')
     try:
-        bound = MapTile(code).bounding_box
-        return (bound[0].x, bound[0].y, bound[1].x, bound[1].y)
+        bbox = MapTile(parts[0]).bounding_box
+        bound = (bbox[0].x, bbox[0].y, bbox[1].x, bbox[1].y)
     except:
         sys.exit('Filename is not a valid TM35FIN code: "%s"' % code)
+
+    # Handle the custom _X prefix from the NLS 5P laser scanning data
+    if len(parts) == 2:
+        i = int(parts[1]) - 1
+        x = bbox[0].x + (i // 3) * 1000
+        y = bbox[0].y + (i % 3) * 1000
+        bound = (x, y, x + 1000, y + 1000)
+
+    return bound
 
 # Get LAS file paths and bounding boxes
 las_paths = glob.glob(config.get('data_sources', 'las_path_pattern'), recursive=True)
